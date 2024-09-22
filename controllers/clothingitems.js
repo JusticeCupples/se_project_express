@@ -5,6 +5,15 @@ const createItem = (req, res) => {
   const { name, weather, imageUrl } = req.body;
   const owner = req.user._id;
 
+  console.log("Received item data:", { name, weather, imageUrl, owner });
+
+  if (!name || !weather || !imageUrl) {
+    console.error("Missing required fields");
+    return res
+      .status(ERROR_CODES.BAD_REQUEST)
+      .send({ message: "Missing required fields" });
+  }
+
   clothingItem
     .create({ name, weather, imageUrl, owner })
     .then((item) => res.status(201).send({ data: item }))
@@ -13,7 +22,7 @@ const createItem = (req, res) => {
       if (err.name === "ValidationError") {
         return res
           .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+          .send({ message: err.message });
       }
       return res
         .status(ERROR_CODES.SERVER_ERROR)
@@ -21,21 +30,25 @@ const createItem = (req, res) => {
     });
 };
 
-const getItems = (req, res) => {
-  const owner = req.user ? req.user._id : null;
-
-  const query = owner ? { owner } : {};
-
+const getAllItems = (req, res) => {
   clothingItem
-    .find(query)
+    .find({})
     .then((items) => {
-      if (items.length === 0) {
-        // If no items found, send default items
-        const defaultClothingItems = require('../utils/constants').defaultClothingItems;
-        res.send({ data: defaultClothingItems });
-      } else {
-        res.send({ data: items });
-      }
+      res.send({ data: items });
+    })
+    .catch((err) => {
+      console.error("Error in getAllItems controller:", err);
+      return res
+        .status(ERROR_CODES.SERVER_ERROR)
+        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
+    });
+};
+
+const getItems = (req, res) => {
+  clothingItem
+    .find({})
+    .then((items) => {
+      res.send({ data: items });
     })
     .catch((err) => {
       console.error("Error in getItems controller:", err);
@@ -127,6 +140,7 @@ const dislikeItem = (req, res) => {
 module.exports = {
   createItem,
   getItems,
+  getAllItems,
   deleteItem,
   likeItem,
   dislikeItem,

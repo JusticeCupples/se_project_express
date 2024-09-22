@@ -49,6 +49,12 @@ const createUser = (req, res) => {
       .send({ message: ERROR_MESSAGES.BAD_REQUEST });
   }
 
+  if (password.length < 6) {
+    return res
+      .status(ERROR_CODES.BAD_REQUEST)
+      .send({ message: "Password must contain at least 6 characters" });
+  }
+
   User.findOne({ email })
     .then((existingUser) => {
       if (existingUser) {
