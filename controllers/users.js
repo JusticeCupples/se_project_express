@@ -2,184 +2,100 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const { JWT_SECRET } = require("../utils/config");
-const { ERROR_CODES, ERROR_MESSAGES } = require("../utils/errors");
-const { BadRequestError, NotFoundError } = require('../utils/errors');
+const BadRequestError = require('../errors/BadRequestError');
+const UnauthorizedError = require('../errors/UnauthorizedError');
+const NotFoundError = require('../errors/NotFoundError');
+const ConflictError = require('../errors/ConflictError');
 
-const getUsers = (req, res) => {
-  User.find({})
-    .then((users) => res.send({ data: users }))
+const createUser = (req, res, next) => {
+  const { name, avatar, email, password } = req.body;
+
+  if (!name || !avatar || !email || !password) {
+    return next(new BadRequestError("Missing required fields"));
+  }
+
+  if (password.length < 6) {
+    return next(new BadRequestError("Password must contain at least 6 characters"));
+  }
+
+  return User.findOne({ email })
+    .then((existingUser) => {
+      if (existingUser) {
+        throw new ConflictError("User with this email already exists");
+      }
+      return bcrypt.hash(password, 10);
+    })
+    .then((hashedPassword) =>
+      User.create({ name, avatar, email, password: hashedPassword })
+    )
+    .then((user) => {
+      const userWithoutPassword = user.toObject();
+      delete userWithoutPassword.password;
+      return res.status(201).send({ data: userWithoutPassword });
+    })
     .catch((err) => {
-      console.error("Error in getUsers controller:", err);
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
+      if (err.name === "ValidationError") {
+        return next(new BadRequestError(err.message));
+      }
+      return next(err);
     });
 };
 
-const getUser = (req, res, next) => {
-  const { userId } = req.params;
+const login = (req, res, next) => {
+  const { email, password } = req.body;
 
-  User.findById(userId)
+  if (!email || !password) {
+    return next(new BadRequestError("Email and password are required."));
+  }
+
+  return User.findUserByCredentials(email, password)
+    .then((user) => {
+      const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
+        expiresIn: "7d",
+      });
+      res.send({ token });
+    })
+    .catch(() => {
+      next(new UnauthorizedError("Incorrect email or password"));
+    });
+};
+
+const getCurrentUser = (req, res, next) => {
+  User.findById(req.user._id)
     .then((user) => {
       if (!user) {
         throw new NotFoundError('User not found');
       }
-      return res.send({ data: user });
+      res.send({ data: user });
     })
-    .catch((err) => {
-      if (err.name === 'CastError') {
-        next(new BadRequestError('Invalid user ID format'));
-      } else {
-        next(err);
-      }
-    });
+    .catch(next);
 };
 
-const createUser = (req, res) => {
-  const { name, avatar, email, password } = req.body;
-
-  if (!name || !avatar || !email || !password) {
-    return res
-      .status(ERROR_CODES.BAD_REQUEST)
-      .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-  }
-
-  if (password.length < 6) {
-    return res
-      .status(ERROR_CODES.BAD_REQUEST)
-      .send({ message: "Password must contain at least 6 characters" });
-  }
-
-  User.findOne({ email })
-    .then((existingUser) => {
-      if (existingUser) {
-        return res
-          .status(ERROR_CODES.CONFLICT)
-          .send({ message: "User with this email already exists" });
-      }
-
-      return bcrypt
-        .hash(password, 10)
-        .then((hashedPassword) =>
-          User.create({ name, avatar, email, password: hashedPassword })
-        )
-        .then((user) => {
-          const userWithoutPassword = user.toObject();
-          delete userWithoutPassword.password;
-          return res.status(201).send({ data: userWithoutPassword });
-        });
-    })
-    .catch((err) => {
-      console.error("Error in createUser controller:", err);
-      if (err.name === "ValidationError") {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-      }
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
-    });
-};
-
-const login = (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res
-      .status(ERROR_CODES.BAD_REQUEST)
-      .send({ message: "Email and password are required." });
-  }
-
-  return User.findOne({ email })
-    .select("+password")
-    .then((user) => {
-      if (!user) {
-        return res
-          .status(ERROR_CODES.UNAUTHORIZED)
-          .send({ message: "Incorrect email or password" });
-      }
-      return bcrypt.compare(password, user.password).then((matched) => {
-        if (!matched) {
-          return res
-            .status(ERROR_CODES.UNAUTHORIZED)
-            .send({ message: "Incorrect email or password" });
-        }
-        const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
-          expiresIn: "7d",
-        });
-        return res.send({ token });
-      });
-    })
-    .catch((err) => {
-      console.error("Error in login controller:", err);
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
-    });
-};
-
-const getCurrentUser = (req, res) => {
-  const userId = req.user._id;
-
-  User.findById(userId)
-    .then((user) => {
-      if (!user) {
-        return res
-          .status(ERROR_CODES.NOT_FOUND)
-          .send({ message: ERROR_MESSAGES.NOT_FOUND });
-      }
-      return res.send({ data: user });
-    })
-    .catch((err) => {
-      console.error("Error in getCurrentUser controller:", err);
-      if (err.name === "CastError") {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
-      }
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
-    });
-};
-
-const updateUser = (req, res) => {
+const updateUser = (req, res, next) => {
   const { name, avatar } = req.body;
-  console.log("Updating user with:", { name, avatar });
-
-  return User.findByIdAndUpdate(
+  User.findByIdAndUpdate(
     req.user._id,
     { name, avatar },
     { new: true, runValidators: true }
   )
     .then((user) => {
       if (!user) {
-        return res
-          .status(ERROR_CODES.NOT_FOUND)
-          .send({ message: ERROR_MESSAGES.NOT_FOUND });
+        throw new NotFoundError('User not found');
       }
-      console.log("Updated user:", user);
-      return res.send({ data: user });
+      res.send({ data: user });
     })
     .catch((err) => {
-      console.error("Error in updateUser controller:", err);
       if (err.name === "ValidationError") {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+        next(new BadRequestError(err.message));
+      } else {
+        next(err);
       }
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
     });
 };
 
 module.exports = {
-  getUsers,
-  getUser,
   createUser,
   login,
   getCurrentUser,
-  updateUser,
+  updateUser
 };

@@ -2,10 +2,9 @@ require('dotenv').config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const routes = require("./routes");
-const ClothingItem = require('./models/clothingitem');
-const errorHandler = require('./middlewares/error-handler');
 const { errors } = require('celebrate');
+const routes = require("./routes");
+const errorHandler = require('./middlewares/error-handler');
 const { requestLogger, errorLogger } = require('./middlewares/logger');
 
 const { PORT = 3001 } = process.env;
@@ -16,10 +15,9 @@ mongoose.connect("mongodb://127.0.0.1:27017/wtwr_db", {
   useUnifiedTopology: true,
 })
 .then(() => {
-  console.log("Connected to the database");
+  // Connection successful
 })
-.catch((e) => {
-  console.error("Database connection error:", e);
+.catch(() => {
   process.exit(1);
 });
 
@@ -42,28 +40,8 @@ app.use(errorLogger);
 app.use(errors());
 app.use(errorHandler);
 
-app.use((err, req, res, next) => {
-  console.error("Error details:", err);
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
-});
-
-const server = app.listen(PORT, () => {
-  console.log(`App listening at port ${PORT}`);
-}).on('error', (err) => {
-  console.error("Server startup error:", err);
+app.listen(PORT, () => {
+  // Server started successfully
+}).on('error', () => {
   process.exit(1);
 });
-
-const insertDefaultClothingItems = async () => {
-  try {
-    for (const item of defaultClothingItems) {
-      const existingItem = await ClothingItem.findOne({ name: item.name });
-      if (!existingItem) {
-        await ClothingItem.create(item);
-      }
-    }
-  } catch (error) {
-    console.error('Error inserting default clothing items:', error);
-  }
-};
