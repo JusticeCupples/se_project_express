@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const { JWT_SECRET } = require("../utils/config");
 const { ERROR_CODES, ERROR_MESSAGES } = require("../utils/errors");
+const { BadRequestError, NotFoundError } = require('../utils/errors');
 
 const getUsers = (req, res) => {
   User.find({})
@@ -15,28 +16,22 @@ const getUsers = (req, res) => {
     });
 };
 
-const getUser = (req, res) => {
+const getUser = (req, res, next) => {
   const { userId } = req.params;
 
   User.findById(userId)
     .then((user) => {
       if (!user) {
-        return res
-          .status(ERROR_CODES.NOT_FOUND)
-          .send({ message: ERROR_MESSAGES.NOT_FOUND });
+        throw new NotFoundError('User not found');
       }
       return res.send({ data: user });
     })
     .catch((err) => {
-      console.error("Error in getUser controller:", err);
-      if (err.name === "CastError") {
-        return res
-          .status(ERROR_CODES.BAD_REQUEST)
-          .send({ message: ERROR_MESSAGES.BAD_REQUEST });
+      if (err.name === 'CastError') {
+        next(new BadRequestError('Invalid user ID format'));
+      } else {
+        next(err);
       }
-      return res
-        .status(ERROR_CODES.SERVER_ERROR)
-        .send({ message: ERROR_MESSAGES.SERVER_ERROR });
     });
 };
 

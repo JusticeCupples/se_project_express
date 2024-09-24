@@ -3,6 +3,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const routes = require("./routes");
 const ClothingItem = require('./models/clothingitem');
+const errorHandler = require('./middlewares/error-handler');
+const { errors } = require('celebrate');
+const { requestLogger, errorLogger } = require('./middlewares/logger');
 
 const { PORT = 3001 } = process.env;
 const app = express();
@@ -25,7 +28,11 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 app.use(express.json());
+app.use(requestLogger);
 app.use(routes);
+app.use(errorLogger);
+app.use(errors());
+app.use(errorHandler);
 
 app.use((err, req, res, next) => {
   console.error("Error details:", err);
