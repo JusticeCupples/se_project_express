@@ -80,6 +80,6 @@ npm run lint
 
 ## Domain
 
-[jc-wtwr.crabdance.com](http://jc-wtwr.jumpingcrab.com/)
-[www.jc-wtwr.crabdance.com](http://www.jc-wtwr.jumpingcrab.com/)
-[api.jc-wtwr.crabdance.com](http://api.jc-wtwr.jumpingcrab.com/)
+[jc-wtwr.crabdance.com](https://jc-wtwr.crabdance.com/)
+[www.jc-wtwr.crabdance.com](https://www.jc-wtwr.crabdance.com/)
+[api.jc-wtwr.crabdance.com](https://api.jc-wtwr.crabdance.com/)
