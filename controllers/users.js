@@ -10,10 +10,6 @@ const ConflictError = require('../errors/ConflictError');
 const createUser = (req, res, next) => {
   const { name, avatar, email, password } = req.body;
 
-  if (!name || !avatar || !email || !password) {
-    return next(new BadRequestError("Missing required fields"));
-  }
-
   if (password.length < 6) {
     return next(new BadRequestError("Password must contain at least 6 characters"));
   }
@@ -44,10 +40,6 @@ const createUser = (req, res, next) => {
 const login = (req, res, next) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return next(new BadRequestError("Email and password are required."));
-  }
-
   return User.findUserByCredentials(email, password)
     .then((user) => {
       const token = jwt.sign({ _id: user._id }, JWT_SECRET, {
@@ -55,8 +47,11 @@ const login = (req, res, next) => {
       });
       res.send({ token });
     })
-    .catch(() => {
-      next(new UnauthorizedError("Incorrect email or password"));
+    .catch((err) => {
+      if (err.message === "Incorrect email or password") {
+        return next(new UnauthorizedError("Incorrect email or password"));
+      }
+      return next(err);
     });
 };
 

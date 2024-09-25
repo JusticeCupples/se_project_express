@@ -7,10 +7,6 @@ const createItem = (req, res, next) => {
   const { name, weather, imageUrl } = req.body;
   const owner = req.user._id;
 
-  if (!name || !weather || !imageUrl) {
-    return next(new BadRequestError("Missing required fields"));
-  }
-
   return clothingItem
     .create({ name, weather, imageUrl, owner })
     .then((item) => res.status(201).send({ data: item }))
@@ -25,15 +21,6 @@ const createItem = (req, res, next) => {
 const getAllItems = (req, res, next) => {
   clothingItem
     .find({})
-    .then((items) => {
-      res.send({ data: items });
-    })
-    .catch(next);
-};
-
-const getItems = (req, res, next) => {
-  clothingItem
-    .find({ owner: req.user._id })
     .then((items) => {
       res.send({ data: items });
     })
@@ -83,7 +70,6 @@ const dislikeItem = (req, res, next) => {
 module.exports = {
   createItem,
   getAllItems,
-  getItems,
   deleteItem,
   likeItem,
   dislikeItem
